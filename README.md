@@ -1,1 +1,1 @@
-# Explore and summirize data
+# Explore and Summarize Data

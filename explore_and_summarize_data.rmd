@@ -19,9 +19,16 @@ Explore red wine dataset
 # for other code chunks once you have verified that each plot comes out as you
 # want it to. This will clean up the flow of your report.
 
+#install.packages("ggplot2")
 library(ggplot2)
 #install.packages("tidyr")
 library(tidyr)
+library(dplyr)
+#install.packages("gridExtra")
+library(gridExtra)
+#install.packages("devtools")
+library(devtools)
+#install_github("ggobi/ggally")
 ```
 
 ```{r echo=FALSE, Load_the_Data}
@@ -34,22 +41,24 @@ head(df)
 
 ## Univariate Plots Section
 
-# TODO: REMOVE THIS
-> **Tip**: In this section, you should perform some preliminary exploration of
-your dataset. Run some summaries of the data and create univariate plots to
-understand the structure of the individual variables in your dataset. Don't
-forget to add a comment after each plot or closely-related group of plots!
-There should be multiple code chunks and text sections; the first one below is
-just to help you get started.
-
-```{r echo=FALSE, Univariate_Plots}
-#remote X as that's seem to be index
+```{r echo=FALSE}
+#remote X as we do not need it
 df <- df[,2:length(df)]
 summary(df)
 ```
 
+> Dataset contains 11 quantitative columns (all except quality) and 1 qualitative column (quality)
+
+```{r echo=FALSE}
+# add quality factor 
+df$quality.factor = factor(df$quality)
+str(df)
+```
+
+I have created quality.factor which is factor of "quality" this makes sence since it's categorical variable
+
 ```{r echo=FALSE, "All columns histogram"}
-ggplot(gather(df), aes(value)) +
+ggplot(gather(df[,1:12]), aes(value)) +
   ggtitle("Histogram for each column") +
   geom_histogram(bins = 20) +
   facet_wrap(~key, scales = "free")
@@ -61,51 +70,162 @@ Alcohol, free sulfur.dioxide and total.sulfur.dioxide are clear right-skewed dis
 while density and ph seem to be normally distributed.
 Most of the red wines are quality 5 or 6
 
+
+```{r echo=FALSE}
+ggplot(df, aes(x = citric.acid)) +
+  ggtitle("Histogram of Citric acid") +
+  geom_histogram()
+ 
+```
+
+After having a closer look at citric.acid, I think it may be a good idea to split values into groups 
+as follow 0-0.20, 0.21-0.60 and above 0.6. Distributions seem to be right skewed
+
+```{r echo=FALSE}
+df <- df %>% mutate(citric_acid_grouped = ifelse(citric.acid <= 0.2, "0-0.2", 
+                                          ifelse(citric.acid > 0.2 & 
+                                                   citric.acid < 0.6, 
+                                                 "0.2-0.6", "Above 0.6")))
+
+```
+
+```{r echo=FALSE}
+ggplot(df, aes(x = chlorides)) +
+  ggtitle("Histogram of chlorides") +
+  geom_histogram()
+ 
+```
+
+Chlorides seem to be concetrated around 0.1 mark. Threre outliers around 0.4 and 0.6
+
+
+```{r echo=FALSE}
+ggplot(df, aes(x = residual.sugar)) +
+  ggtitle("Histogram of Residual sugar") +
+  geom_histogram()
+ 
+```
+
+Residual sugar seem to be concentrated around 2 mark. There some ouliers from 8.
+
+
+```{r echo=FALSE}
+ggplot(df, aes(alcohol)) + 
+        geom_histogram()
+```
+
+```{r echo=FALSE}
+# changed binwidth to better see bars 
+ggplot(df, aes(alcohol, fill = 'b')) + 
+        geom_histogram(binwidth = .01) +
+        scale_x_continuous(breaks = seq(7, 15, .5)) + 
+        guides(fill = F)
+ 
+```
+
+```{r echo=FALSE}
+# checking the quartile values 
+summary(df$alcohol)
+
+# creating a new variable 
+df$alcohol_content = cut(df$alcohol, breaks = c(0, 9.5, 11.1, 15))
+
+levels(df$alcohol_content) = c("(0,9.5]" = "Low", 
+                                 "(9.5,11.1]" = "Medium", 
+                                 "(11.1,15]" = "High")
+
+# creating graph to display new variable
+ggplot(df, aes(alcohol_content)) + 
+        geom_bar()
+ 
+```
+
+Created a new variable (alcohol_content) with low, medium, high alcohol content. There is a strict value (x=9.5%) where alcohol content is optimally chosen for wine. The count gradually decreases as content increase and immediately drops as content decreases below 9.5%. The average alcohol content is 10.42%.
+
+
 # Univariate Analysis
 
-> **Tip**: Now that you've completed your univariate explorations, it's time to
-reflect on and summarize what you've found. Use the questions below to help you
-gather your observations and add your own if you have other thoughts!
-
 ### What is the structure of your dataset?
+>There are 1599 redwine observations in the dataset with 12 features. All 
+features contains numeric data except the quality which is a categorical.
 
 ### What is/are the main feature(s) of interest in your dataset?
+> The main feature is quality 
 
 ### What other features in the dataset do you think will help support your \
 investigation into your feature(s) of interest?
 
+>The other feature that may support the investigation, in my opinion, 
+are alcohol, density, ph
+
 ### Did you create any new variables from existing variables in the dataset?
+> Yes, I have added "citric_acid_grouped" and I have removed "X". Then I created alcohol_content which consists of 3 buckets (0, 9.5], (9.5, 11.1], and (11.1, 15]. Then I renamed each bucket to Low, Medium, and High to differentiate the amount of alcohol catagorically. Then I have added quality.factor to make use of category when drawing graphs
 
 ### Of the features you investigated, were there any unusual distributions? \
 Did you perform any operations on the data to tidy, adjust, or change the form \
 of the data? If so, why did you do this?
+>I have noticed that citric.acid seem to be right skewed and it would fit better if in groups
+
 
 
 # Bivariate Plots Section
 
-> **Tip**: Based on what you saw in the univariate plots, what relationships
-between variables might be interesting to look at in this section? Don't limit
-yourself to relationships between a main output feature and one of the
-supporting variables. Try to look at relationships between supporting variables
-as well.
+```{r echo=FALSE}
 
-```{r echo=FALSE, Bivariate_Plots}
+library(GGally)
+ggscatmat(df, columns = 1:12) + theme_grey(base_size=6)
+```
+
+The four highest correlation coefficients with quality are:
+
+1. alcohol at 0.48
+2. sulphates at 0.25
+3. citric.acid at 0.23
+4. fixed.acidity at 0.12
+
+
+```{r echo=FALSE}
+ggplot(df, aes(density, alcohol)) + 
+  geom_jitter(alpha=0.2) + 
+  stat_smooth(method = "lm", formula = y ~ x)
 
 ```
 
+At the high and lowest points of alcohol, there is not much density. But there is a trend towards higher density as alcohol content drops.
+
+
+```{r echo=FALSE}
+ggplot(df, aes(fixed.acidity, pH)) + 
+  geom_jitter(alpha=0.2) + 
+  stat_smooth(method = "lm", formula = y ~ x)
+
+```
+
+
+We see fixed acidity increase as pH decreases.
+
+
+```{r echo=FALSE}
+ggplot(df, aes(fixed.acidity, density)) + 
+  geom_point(alpha=0.2) +  
+  stat_smooth(method = "lm", formula = y ~ x)
+
+```
+
+Fixed acidity increases as density increases.
+
+```{r echo=FALSE}
+ggplot(df, aes(quality, alcohol)) + 
+  geom_jitter(alpha=0.2) +  
+  stat_smooth(method = "lm", formula = y ~ x)
+
+```
+
+Quality seem to be incresing with higher alhocol.
+
 # Bivariate Analysis
 
-> **Tip**: As before, summarize what you found in your bivariate explorations
-here. Use the questions below to guide your discussion.
-
-### Talk about some of the relationships you observed in this part of the \
-investigation. How did the feature(s) of interest vary with other features in \
-the dataset?
-
-### Did you observe any interesting relationships between the other features \
-(not the main feature(s) of interest)?
-
-### What was the strongest relationship you found?
+> Alcohol has the highest positive correlation with quality, followed by sulphates, citric.acid, and fixed.acidity. We explored this further by comparing alcohol and density. Density rises as alcohol drops. Given their negative and positive correlations, this is to be expected. It's the same with fixed acidity and ph, which has the highest negative correlation coefficient among our fields. Density and fixed acidity correlate positively, and trend in the same direction. More density means more fixed acidity.
 
 
 # Multivariate Plots Section
@@ -117,20 +237,49 @@ create here are justified by the plots you explored in the previous section. If
 you plan on creating any mathematical models, this is the section where you
 will do that.
 
-```{r echo=FALSE, Multivariate_Plots}
-
+```{r echo=FALSE}
+ggplot(df, aes(y = fixed.acidity, x = pH, color = quality.factor)) + 
+        geom_point()
 ```
+
+The graph shows that the higher the acidity the lower pH. We can see any relationships related to color
+
+```{r echo=FALSE}
+ggplot(df, aes(y = fixed.acidity, x = density, color = quality.factor)) + 
+        geom_jitter(alpha=0.7)
+```
+
+There seems to be a strong direct relationship where density increases as acidity increases. 
+Adding quality by color shows lower quality (4 and 5) are high density and low acidity compared to (6, 7, 8).
+
+```{r echo=FALSE}
+ggplot(df, aes(y = residual.sugar, x = alcohol, color = quality.factor)) + 
+        geom_jitter()
+```
+
+Comparing the residual sugar and alcohol shows most of the red wine is below 4 which means they 
+would be off-dry wines and range from 9-13% in alcohol content.
+
+
+```{r echo=FALSE}
+ggplot(df, aes(y = volatile.acidity, x = pH, color = alcohol_content)) + 
+        geom_jitter() + 
+        
+        # creates multiple graphs for each quality 
+        facet_wrap(~quality.factor, ncol = 3)
+```
+
+Each graph is colored by alcohol_content and seperated by quality. We see medium and high alcohol 
+content more prominent in higher quality wines
+
 
 # Multivariate Analysis
 
-### Talk about some of the relationships you observed in this part of the \
-investigation. Were there features that strengthened each other in terms of \
-looking at your feature(s) of interest?
+There seems to be a relationship between quality and alcohol content. Where higher quality wine 
+usually contain more alcohol
 
 ### Were there any interesting or surprising interactions between features?
-
-### OPTIONAL: Did you create any models with your dataset? Discuss the \
-strengths and limitations of your model.
+I would not say that was surprised by my finding as I would expect higher alcohol content in better wines
 
 ------
 
@@ -146,35 +295,83 @@ make sure you justify why you chose each plot by describing what it shows.
 
 ### Plot One
 ```{r echo=FALSE, Plot_One}
-
+ggplot(df, aes(alcohol, fill = "#000")) + 
+        geom_histogram(binwidth = .05) +
+        scale_x_continuous(breaks = 8:15) +
+        
+        # adding X, Y, and graph titles 
+        labs(title = "Red Wine Alcohol Percentage", 
+             x = "Alcohol Percentage",
+             y = "Number of Wines", size = 12) + 
+        
+        # changing the size of the titles
+        theme(plot.title = element_text(size = rel(2)), 
+              axis.title.y = element_text(size = rel(1.5), angle = 90), 
+              axis.title.x = element_text(size = rel(1.5), angle = 0)) + 
+        
+        # removes the legend since it is not required
+        guides(fill = F)
 ```
 
 ### Description One
-
+This graph shows the greatest alcohol % to be around 9.5% and we see a gradual decrease as the % increases 
+or decreases. This is probably becuase that's the optimal alcohol % that is time efficient 
+(as in the amount of time needed for fermentation) for wholesale, or the amount most consumers prefer.
 
 ### Plot Two
 ```{r echo=FALSE, Plot_Two}
+ggplot(df, aes(y = volatile.acidity, x = pH, color = alcohol_content)) + 
+        geom_jitter() + 
+        facet_wrap(~quality, ncol = 2) + 
+        scale_color_brewer(palette = 'Set2') +
+        labs(color = "Alcohol Content") +
+        
+        labs(title = "Volatile Acidity of pH by Alcohol Content", 
+             y = "Volatile Acidity", 
+             x = "pH", 
+             size = 12) + 
+        
+        theme(plot.title = element_text(size = rel(2)), 
+              axis.title.y = element_text(size = rel(1.5), angle = 90), 
+              axis.title.x = element_text(size = rel(1), angle = 0))
 
 ```
 
 ### Description Two
 
+This plot shows how the alcohol content changes with quality, mostly high content wines 
+are promenent in quality 8 while the opposite is true for quality 3. There is also a small 
+down shift towards volatile acidity as quality increases, I suspect to lower the vinger taste.
 
 ### Plot Three
-```{r echo=FALSE, Plot_Three}
 
+```{r echo=FALSE, Plot_Three}
+ggplot(df, aes(y = fixed.acidity, x = density, color = quality.factor)) + 
+        geom_point() +
+        scale_color_brewer(palette = 'OrRd') +
+        labs(color="Quality")
+        labs(title = "Fixed Acidity of density by quality", 
+             x = "Density", 
+             y = "Fixed Acidity", 
+             size = 12) + 
+        
+        theme(plot.title = element_text(size = rel(2)), 
+              axis.title.y = element_text(size = rel(1), angle = 90), 
+              axis.title.x = element_text(size = rel(1.5), angle = 0))
 ```
 
 ### Description Three
+The graph shows how acidity increases as density increases. It is also able to determine loosely, how the higher quality is more acidic.
 
 ------
 
 # Reflection
 
-> **Tip**: Here's the final step! Reflect on the exploration you performed and
-the insights you found. What were some of the struggles that you went through?
-What went well? What was surprising? Make sure you include an insight into
-future work that could be done with the dataset.
-
-> **Tip**: Don't forget to remove this, and the other **Tip** sections before
-saving your final work and knitting the final report!
+I found exploring a red wines dataset very interesting while I had a suspicion than 
+higher quality wines generally have higher alcohol content it was a fun to explore and 
+actually confirm that assumption. 
+I found challenging to actually use R studio and R language, in general, 
+I'm used to programming in Python so this was quite a challenge but at the end quite rewarding 
+to know another programing language even on a basic level.
+For future, I could perhaps work out a machine learning model that would predict a price or 
+quality of wine based on data provided
